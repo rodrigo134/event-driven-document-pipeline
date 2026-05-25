@@ -15,20 +15,20 @@ public class FileStorageService {
         this.minioClient = minioClient;
     }
 
-    public void salvarArquivo(String bucket, String nome, MultipartFile arquivo) {
+    public void saveFile(String bucket, String objectName, MultipartFile file) {
 
         try {
 
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
-                            .object(nome)
+                            .object(objectName)
                             .stream(
-                                    arquivo.getInputStream(),
-                                    arquivo.getSize(),
+                                    file.getInputStream(),
+                                    file.getSize(),
                                     -1
                             )
-                            .contentType(arquivo.getContentType())
+                            .contentType(file.getContentType())
                             .build()
             );
 
