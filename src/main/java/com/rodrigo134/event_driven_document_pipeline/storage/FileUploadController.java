@@ -1,6 +1,8 @@
 package com.rodrigo134.event_driven_document_pipeline.storage;
 
 
+import com.rodrigo134.event_driven_document_pipeline.document.Document;
+import com.rodrigo134.event_driven_document_pipeline.document.DocumentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,24 +16,18 @@ import java.util.UUID;
 @RequestMapping("/files")
 public class FileUploadController {
 
-    private final  FileStorageService fileStorageService;
+    private final DocumentService documentService;
 
-    public FileUploadController(FileStorageService fileStorageService) {
-        this.fileStorageService = fileStorageService;
+    public FileUploadController(DocumentService documentService) {
+        this.documentService = documentService;
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
-        fileStorageService.saveFile(
-                "documents",
-                UUID.randomUUID().toString() + "-"+ file.getOriginalFilename(),
-                file);
-
-
-        return ResponseEntity.ok("File uploaded successfully");
-
+    public ResponseEntity<Document> uploadFile(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(documentService.upload(file));
     }
-
-
-
 }
+
+
+
+
