@@ -1,45 +1,60 @@
-┌──
+# Event-Driven Document Ingestion Pipeline
 
+A concise, production-focused example demonstrating an event-driven, exactly-once document ingestion pipeline built with Spring Boot. The project shows how to ingest files into object storage (MinIO), deduplicate uploads by content hash, persist metadata in Postgres, and process documents through resilient, event-driven components.
 
-| Cenário                          | Resultado comum                    | Resultado que você resolve                                         |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------ |
-| Uploada 50 documentos            | 3 falham no meio, some do sistema  | Cada um é rastreado, falha é detectada, reprocessa automaticamente |
-| Uploada o mesmo PDF 2x           | Processa 2x, gera duplicatas       | Detecta por hash, ignora o segundo                                 |
-| Lambda morre no meio do chunking | Documento fica órfão, ninguém sabe | Saga compensa: limpa o que fez, notifica, marca como falha         |
-| API de embedding cai             | Pipeline trava, fila explode       | Circuit breaker abre, vai pra fila de retry com backoff            |
+What this repository demonstrates
+- Content-based deduplication at ingestion (SHA-based file hash).
+- Exactly-once semantics using idempotency keys and correlation IDs.
+- Saga-style compensation for long-running workflows and partial failures.
+- Resiliency patterns: retries, circuit breakers and Dead Letter Queue for failed items.
 
+High-level structure
+- src/main/java: Spring Boot application and services
+  - document/: domain objects, repository, services for file metadata and workflow state
+  - storage/: MinIO client, upload controller and storage integration
+  - config/: MinIO and infrastructure configuration
+- docker-compose.yml: development stack (MinIO, Postgres, optionally LocalStack)
+- .env.example: template containing the minimal environment variables required (safe to commit)
 
+Security and secrets
+- Do NOT commit real secrets or credentials. Keep any real passwords, access keys, or tokens out of the repository.
+- This project tracks `application.properties` intentionally for example purposes. Only example-safe values should be present in tracked config files.
+- A `.env.example` file is provided as a template with the minimal placeholders required to run locally. Copy it to `.env` and fill values for local development only. Do not commit `.env` with real credentials.
 
+Quickstart (local development)
+Prerequisites: Java 17, Docker & docker-compose, Maven (project includes the Maven Wrapper)
 
+1) Prepare local environment
+   - Copy the template and fill values for local testing:
 
-## Pipeline de Ingestão de Documentos — Exactly-Once Serverless
+     Windows (cmd.exe):
+     copy .env.example .env
 
-### Problema
-RAG pipelines falham silenciosamente: documento some no meio do processamento,
-duplicatas poluem o índice, falhas só são descobertas dias depois.
+   - Edit `.env` and provide values only for the placeholders shown in `.env.example`.
 
-### Solução
-Pipeline event-driven (S3 → EventBridge → SQS → Lambda) com:
-- Deduplicação por hash de conteúdo no ingresso
-- Idempotência por correlation ID + step
-- Saga pattern com compensação automática
-- Circuit breaker por provedor de embedding
+2) Start infrastructure
+   - docker-compose up -d minio postgres
 
-### Arquitetura
-[diagrama]
+3) Run the application
+   - Windows (cmd.exe):
+     .\mvnw.cmd spring-boot:run
 
-### Métricas (benchmark com k6 + LocalStack)
-| Cenário | Taxa de sucesso | Tempo médio | Observação |
-|---------|----------------|-------------|------------|
-| 10k docs normais | 99.97% | 2.3s | 3 falhas, todas compensadas |
-| 1k duplicatas | 100% (1 processado) | 0.8s | 999 ignorados |
-| Kill Lambda no meio | 100% | 4.1s | Compensação em 1.2s |
-| API embedding cai | 99.94% | 8.7s | Fallback pra retry, depois DLQ |
+4) Upload and test
+   - Use the REST endpoints exposed by the application (see `src/main/java/.../storage/FileUploadController.java`) to upload files and observe the ingestion pipeline behavior.
 
-### Como rodar
-```bash
-docker-compose up -d localstack postgres
-./gradlew bootRun
-k6 run benchmark/upload-normal.js
-k6 run benchmark/upload-duplicates.js
-k6 run benchmark/kill-lambda.js  # chaos test
+Notes on environment variables
+- `.env.example` intentionally contains only the minimal placeholders required for this project (see the file for exact names). It is intended as a template only.
+- Keep `.env` local and out of version control.
+
+Diagnostics and testing
+- The project contains benchmark scripts and test scenarios used during development (k6 + LocalStack). Those are for development and load testing only.
+
+How to handle accidental secret commits
+1. Remove the file and commit: git rm --cached .env && git commit -m "remove .env from repo"
+2. If secrets were committed to history, rewrite history using `git filter-repo` or the BFG Repo-Cleaner and rotate the compromised credentials.
+
+Contributing
+- Please open issues or PRs for improvements. Keep changes focused and include tests where applicable.
+
+Contact
+- Open an issue on this repository with questions or suggestions.

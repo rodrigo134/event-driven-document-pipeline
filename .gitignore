@@ -1,5 +1,5 @@
-# .gitignore para projeto Java / Maven / Spring Boot
-# Mantém arquivos de build e artefatos locais fora do repositório
+# .gitignore for Java / Maven / Spring Boot
+# Keep build artifacts and local files out of the repository
 
 # Maven
 /target/
@@ -46,6 +46,7 @@ Desktop.ini
 # Environment / sensitive files
 .env
 .env.*
+!.env.example
 *.local
 /local.properties
 /secrets/
@@ -83,17 +84,14 @@ generated/
 /failsafe-reports/
 
 # Application specific
-application.properties
-application.yml
-# Se você tem um application.properties com segredos, mantenha-o local e adicione uma cópia de exemplo
-# application.properties.example
+# application.properties is intentionally tracked in this repository for examples
 
 # JetBrains Rider
 .idea/
 *.sln
 *.suo
 
-# Gradle (caso haja módulos que usem gradle)
+# Gradle (in case some modules use it)
 .gradle/
 build/
 
@@ -113,7 +111,7 @@ work/**
 # keep gitignore itself
 !.gitignore
 
-# Custom excludes que já existiam no arquivo original
+# HELP file kept intentionally
 HELP.md
 
 # End of file
