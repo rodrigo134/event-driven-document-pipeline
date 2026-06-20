@@ -6,7 +6,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-
 @Getter
 @Setter
 @Entity
@@ -30,8 +29,7 @@ public class Document {
 
     private LocalDateTime uploadedAt;
 
+    private LocalDateTime processedAt;
 
-
-
-
+    private String failureReason;
 }
