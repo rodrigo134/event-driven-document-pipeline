@@ -1,4 +1,4 @@
-package com.rodrigo134.event_driven_document_pipeline.storage;
+package com.rodrigo134.event_driven_document_pipeline.ingestion;
 
 
 import com.rodrigo134.event_driven_document_pipeline.document.Document;
@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/files")

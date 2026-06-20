@@ -1,5 +1,6 @@
 package com.rodrigo134.event_driven_document_pipeline.document;
 
+import com.rodrigo134.event_driven_document_pipeline.exception.DuplicateDocumentException;
 import com.rodrigo134.event_driven_document_pipeline.queue.DocumentQueuePublisher;
 import com.rodrigo134.event_driven_document_pipeline.queue.DocumentUploadedEvent;
 import com.rodrigo134.event_driven_document_pipeline.storage.FileStorageService;
@@ -38,7 +39,7 @@ public class DocumentService {
 
         // 2. deduplicação
         documentRepository.findByHash(hash).ifPresent(doc -> {
-            throw new RuntimeException("Duplicate file");
+            throw new DuplicateDocumentException("File already uploaded");
         });
 
         // 3. gera chave no MinIO
