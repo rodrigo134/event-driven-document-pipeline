@@ -1,60 +1,113 @@
-# Event-Driven Document Ingestion Pipeline
+# Event-Driven Document Pipeline
 
-A concise, production-focused example demonstrating an event-driven, exactly-once document ingestion pipeline built with Spring Boot. The project shows how to ingest files into object storage (MinIO), deduplicate uploads by content hash, persist metadata in Postgres, and process documents through resilient, event-driven components.
+Spring Boot API for uploading documents, storing the original file in MinIO, saving metadata in PostgreSQL, and processing the upload asynchronously through RabbitMQ.
 
-What this repository demonstrates
-- Content-based deduplication at ingestion (SHA-based file hash).
-- Exactly-once semantics using idempotency keys and correlation IDs.
-- Saga-style compensation for long-running workflows and partial failures.
-- Resiliency patterns: retries, circuit breakers and Dead Letter Queue for failed items.
+## Current Flow
 
-High-level structure
-- src/main/java: Spring Boot application and services
-  - document/: domain objects, repository, services for file metadata and workflow state
-  - storage/: MinIO client, upload controller and storage integration
-  - config/: MinIO and infrastructure configuration
-- docker-compose.yml: development stack (MinIO, Postgres, optionally LocalStack)
-- .env.example: template containing the minimal environment variables required (safe to commit)
+1. `POST /files/upload` receives a multipart file.
+2. The application calculates a SHA-256 hash from the file content.
+3. If another document with the same hash already exists, the upload is rejected.
+4. The file is saved in MinIO using a generated object key.
+5. A `documents` row is created in PostgreSQL with status `UPLOADED`.
+6. A `DocumentUploadedEvent` is published to RabbitMQ.
+7. The consumer reads the event, loads the file from MinIO, and updates the document status:
+   - `PROCESSING` while the worker is running
+   - `PROCESSED` when the file can be read successfully
+   - `FAILED` when processing throws an exception
 
-Security and secrets
-- Do NOT commit real secrets or credentials. Keep any real passwords, access keys, or tokens out of the repository.
-- This project tracks `application.properties` intentionally for example purposes. Only example-safe values should be present in tracked config files.
-- A `.env.example` file is provided as a template with the minimal placeholders required to run locally. Copy it to `.env` and fill values for local development only. Do not commit `.env` with real credentials.
+The processing step is intentionally simple right now: it validates that the worker can access and read the stored object. It does not parse document contents yet.
 
-Quickstart (local development)
-Prerequisites: Java 17, Docker & docker-compose, Maven (project includes the Maven Wrapper)
+## Stack
 
-1) Prepare local environment
-   - Copy the template and fill values for local testing:
+- Java 21
+- Spring Boot
+- Spring Web
+- Spring Data JPA
+- Spring AMQP
+- PostgreSQL
+- RabbitMQ
+- MinIO
+- Maven Wrapper
 
-     Windows (cmd.exe):
-     copy .env.example .env
+## Project Structure
 
-   - Edit `.env` and provide values only for the placeholders shown in `.env.example`.
+```text
+src/main/java/com/rodrigo134/event_driven_document_pipeline
+├── config/       Infrastructure configuration
+├── document/     Document entity, repository, status, and upload service
+├── exception/    Domain exceptions
+├── ingestion/    Upload HTTP controller
+├── processing/   Asynchronous document processor
+├── queue/        RabbitMQ event publisher, consumer, and event payload
+└── storage/      MinIO file storage service
+```
 
-2) Start infrastructure
-   - docker-compose up -d minio postgres
+## Local Setup
 
-3) Run the application
-   - Windows (cmd.exe):
-     .\mvnw.cmd spring-boot:run
+### 1. Configure environment variables
 
-4) Upload and test
-   - Use the REST endpoints exposed by the application (see `src/main/java/.../storage/FileUploadController.java`) to upload files and observe the ingestion pipeline behavior.
+Copy the example file:
 
-Notes on environment variables
-- `.env.example` intentionally contains only the minimal placeholders required for this project (see the file for exact names). It is intended as a template only.
-- Keep `.env` local and out of version control.
+```powershell
+Copy-Item .env.example .env
+```
 
-Diagnostics and testing
-- The project contains benchmark scripts and test scenarios used during development (k6 + LocalStack). Those are for development and load testing only.
+Fill in the values in `.env`.
 
-How to handle accidental secret commits
-1. Remove the file and commit: git rm --cached .env && git commit -m "remove .env from repo"
-2. If secrets were committed to history, rewrite history using `git filter-repo` or the BFG Repo-Cleaner and rotate the compromised credentials.
+### 2. Start dependencies
 
-Contributing
-- Please open issues or PRs for improvements. Keep changes focused and include tests where applicable.
+```powershell
+docker compose up -d
+```
 
-Contact
-- Open an issue on this repository with questions or suggestions.
+Services:
+
+- PostgreSQL: `localhost:5432`
+- RabbitMQ: `localhost:5672`
+- RabbitMQ Management UI: `http://localhost:15672`
+- MinIO API: `http://localhost:9000`
+- MinIO Console: `http://localhost:9001`
+
+Create a MinIO bucket named `documents` before uploading files.
+
+### 3. Run the application
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+The API starts on the default Spring Boot port: `http://localhost:8080`.
+
+## API
+
+### Upload a document
+
+```http
+POST /files/upload
+Content-Type: multipart/form-data
+```
+
+Form field:
+
+- `file`: document file
+
+Example with curl:
+
+```bash
+curl -F "file=@example.pdf" http://localhost:8080/files/upload
+```
+
+### Get document metadata
+
+```http
+GET /documents/{id}
+```
+
+Returns the document metadata, including object key, hash, upload time, processing status, processed time, and failure reason when applicable.
+
+## Notes
+
+- Deduplication is based on the SHA-256 hash stored in PostgreSQL.
+- RabbitMQ is used for asynchronous handoff after the upload record is created.
+- There is no dead-letter queue, retry policy, circuit breaker, saga, or exactly-once guarantee implemented in the current codebase.
+- Keep real credentials out of Git. Use `.env` locally and keep `.env.example` as the committed template.
